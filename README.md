@@ -36,9 +36,7 @@ static void assign_forks(t_philo *philo, t_fork *forks, int philo_position)
 
 - There are `N` philosophers sitting around a table, each with a plate and a fork between them.
 - Each philosopher needs **two forks** to eat: one on the left, one on the right.
-- To avoid deadlock (everyone waiting forever), the assignment is made so that:
-    - **Even-numbered philosophers** pick their own fork first (right), then the next fork (left).
-    - **Odd-numbered philosophers** pick the next fork first (left), then their own (right).
+- To avoid deadlock (everyone waiting forever).
 
 ## Example
 
