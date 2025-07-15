@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explicación de gettime() y precise_usleep() - Proyecto Philosophers</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4e54c8;
+            --secondary: #8f94fb;
+            --dark: #21243b;
+            --light: #f8f9fa;
+            --success: #2ecc71;
+            --info: #3498db;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
+        }
+        body {
+            background: linear-gradient(120deg, var(--dark) 80%, #16213e 100%);
+            color: var(--light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 2rem 0 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            box-shadow: 0 3px 15px rgba(78, 84, 200, 0.13);
+        }
+        .header .logo {
+            font-size: 2.6rem;
+            margin-right: 1rem;
+        }
+        .card {
+            background: rgba(31, 33, 62, 0.88);
+            border-radius: 15px;
+            margin-bottom: 30px;
+            color: var(--light);
+            box-shadow: 0 4px 20px rgba(78,84,200,0.07);
+        }
+        .card-header {
+            background: rgba(78, 84, 200, 0.18);
+            font-weight: 600;
+            font-size: 1.18rem;
+            border-bottom: 1px solid var(--primary);
+        }
+        .code-block {
+            background: #182138;
+            border-radius: 8px;
+            padding: 18px;
+            font-family: 'Fira Mono', 'Courier New', monospace;
+            font-size: 1rem;
+            margin: 16px 0;
+            overflow-x: auto;
+            border: 1px solid var(--info);
+            color: #9feaf9;
+        }
+        .function-diagram {
+            background: rgba(52,152,219,0.11);
+            border-left: 4px solid var(--info);
+            border-radius: 8px;
+            padding: 13px 22px;
+            margin: 14px 0;
+        }
+        .diagram-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 13px;
+            margin-bottom: 10px;
+        }
+        .step-number {
+            background: var(--info);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .subject-requirement {
+            background: rgba(231,76,60,0.11);
+            border-left: 4px solid var(--danger);
+            padding: 12px 20px;
+            border-radius: 7px;
+            margin: 18px 0;
+        }
+        .conversion-table {
+            background: rgba(46,204,113,0.09);
+            border-radius: 7px;
+            padding: 13px;
+            margin: 15px 0;
+            border-left: 4px solid var(--success);
+        }
+        .conversion-table th,
+        .conversion-table td {
+            padding: 7px 10px;
+            text-align: center;
+        }
+        .explanation-list {
+            margin-left: 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        .explanation-list li {
+            margin-bottom: 14px;
+            background: rgba(78,84,200,0.09);
+            padding: 8px 16px;
+            border-radius: 7px;
+            border-left: 4px solid var(--secondary);
+        }
+        .footer {
+            background: var(--primary);
+            color: white;
+            padding: 22px 0 12px 0;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            margin-top: 40px;
+            box-shadow: 0 -3px 15px rgba(78, 84, 200, 0.10);
+        }
+        @media (max-width: 768px) {
+            .header, .footer {
+                border-radius: 0;
+            }
+            .function-diagram, .subject-requirement, .conversion-table {
+                padding: 8px 7px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header text-center">
+        <div class="container">
+            <span class="logo"><i class="fas fa-clock"></i></span>
+            <h1 class="fw-bold d-inline">gettime() & precise_usleep() en Philosophers</h1>
+            <p class="lead mt-3">Cómo se mide el tiempo y por qué es importante para el proyecto</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header"><i class="fas fa-info-circle me-2"></i>¿Qué hace gettime()?</div>
+                    <div class="card-body">
+                        <p>
+                            Dentro del proyecto <strong>Philosophers</strong>, la función <code>gettime()</code> se encarga de obtener el tiempo actual en dos unidades distintas: <strong>milisegundos (ms)</strong> y <strong>microsegundos (µs)</strong>. 
+                            Se apoya en la llamada del sistema <code>gettimeofday()</code> de Linux, que proporciona la hora actual desde la Época Unix, con precisión de microsegundos.
+                        </p>
+                        <div class="code-block">
+<pre><code>long gettime(t_time_code time_code)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    if (MSEC == time_code)
+        return ((tv.tv_sec * 1e3) + tv.tv_usec / 1e3);
+    else if (USEC == time_code)
+        return ((tv.tv_sec * 1e6) + tv.tv_usec);
+    return (-1);
+}</code></pre>
+                        </div>
+                        <div class="function-diagram">
+                            <div class="diagram-step">
+                                <div class="step-number">1</div>
+                                <div><strong>gettimeofday()</strong> llena la estructura <code>struct timeval</code> con:
+                                    <ul class="mb-0">
+                                        <li><code>tv_sec</code>: segundos desde 1970</li>
+                                        <li><code>tv_usec</code>: microsegundos extra (0-999,999)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="diagram-step">
+                                <div class="step-number">2</div>
+                                <div>
+                                  <strong>Conversión:</strong><br>
+                                  <code>tv_sec * 1e3 + tv_usec / 1e3</code> → milisegundos<br>
+                                  <code>tv_sec * 1e6 + tv_usec</code> → microsegundos
+                                </div>
+                            </div>
+                        </div>
+                        <div class="subject-requirement">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <strong>Requisito del Subject:</strong>
+                            <br>
+                            Todo cambio de estado debe llevar <code>timestamp_in_ms</code> (marca de tiempo en <b>milisegundos</b>).
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><i class="fas fa-sync-alt me-2"></i>¿Por qué usar gettimeofday?</div>
+                    <div class="card-body">
+                        <p>
+                            <code>gettimeofday()</code> es una función POSIX ampliamente utilizada para obtener la hora actual con alta precisión. 
+                            Retorna los segundos y microsegundos desde el Epoch (<code>struct timeval</code>), permitiendo así trabajar con intervalos de tiempo muy breves.
+                        </p>
+                        <div class="function-diagram">
+                            <div><b>Ventajas:</b></div>
+                            <ul>
+                                <li><b>Precisión:</b> Permite medir intervalos muy pequeños, ideal para simulaciones de concurrencia como Philosophers.</li>
+                                <li><b>Simulación realista:</b> Podemos calcular cuándo murió un filósofo o cuánto tiempo lleva comiendo/durmiendo.</li>
+                                <li><b>Control total:</b> El programa puede convertir entre unidades según la necesidad (ms para logs, µs para sleeps).</li>
+                            </ul>
+                        </div>
+                        <p>
+                            <b>Nota:</b> La precisión absoluta puede verse afectada por interrupciones o cambios manuales en la hora del sistema. Para aplicaciones que requieren monotonicidad, se recomienda <code>clock_gettime()</code>.
+                        </p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><i class="fas fa-project-diagram me-2"></i>Uso en precise_usleep()</div>
+                    <div class="card-body">
+                        <p>
+                            <code>precise_usleep()</code> implementa una función de pausa más precisa que <code>usleep</code> estándar, utilizando <code>gettime(USEC)</code> para controlar el tiempo transcurrido.
+                        </p>
+                        <div class="code-block">
+<pre><code>void precise_usleep(long usec, t_table *table)
+{
+    long start = gettime(USEC);
+    long elapsed, remaining;
+    while (1) {
+        if (simulation_finished(table)) break;
+        elapsed = gettime(USEC) - start;
+        if (elapsed >= usec) break;
+        remaining = usec - elapsed;
+        if (remaining > 1e3)
+            usleep(remaining / 2);
+        else if (remaining > 100)
+            usleep(100);
+        else
+            usleep(10);
+    }
+}</code></pre>
+                        </div>
+                        <div class="function-diagram">
+                            <div class="diagram-step">
+                                <div class="step-number">1</div>
+                                <div><b>Marca el inicio</b> con <code>gettime(USEC)</code></div>
+                            </div>
+                            <div class="diagram-step">
+                                <div class="step-number">2</div>
+                                <div><b>Chequea:</b> Si el tiempo transcurrido supera el pedido, termina.</div>
+                            </div>
+                            <div class="diagram-step">
+                                <div class="step-number">3</div>
+                                <div><b>Pausa:</b> Usa <code>usleep</code> para dormir la mayor parte del tiempo, y afina los últimos microsegundos con pausas más cortas.</div>
+                            </div>
+                        </div>
+                        <p><i>
+                            Esto permite que los filósofos duerman/coman con la máxima precisión que permite el sistema operativo, evitando retrasos innecesarios.
+                        </i></p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><i class="fas fa-calculator me-2"></i>Conversión de Unidades</div>
+                    <div class="card-body">
+                        <table class="table conversion-table table-borderless">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--info);">
+                                    <th>Unidad</th>
+                                    <th>Conversión</th>
+                                    <th>Ejemplo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Segundos → Milisegundos</td>
+                                    <td>s × 1,000</td>
+                                    <td>2.5 s = 2,500 ms</td>
+                                </tr>
+                                <tr>
+                                    <td>Milisegundos → Microsegundos</td>
+                                    <td>ms × 1,000</td>
+                                    <td>120 ms = 120,000 µs</td>
+                                </tr>
+                                <tr>
+                                    <td>Microsegundos → Milisegundos</td>
+                                    <td>µs ÷ 1,000</td>
+                                    <td>25,000 µs = 25 ms</td>
+                                </tr>
+                                <tr>
+                                    <td>Segundos → Microsegundos</td>
+                                    <td>s × 1,000,000</td>
+                                    <td>0.75 s = 750,000 µs</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="mt-2">
+                            <b>Notación científica en el código:</b>
+                            <br>
+                            <code>1e3</code> = 1 × 10³ = 1,000<br>
+                            <code>1e6</code> = 1 × 10⁶ = 1,000,000
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header"><i class="fas fa-question-circle me-2"></i>¿Por qué usar milisegundos?</div>
+                    <div class="card-body">
+                        <ul class="explanation-list">
+                            <li><b><i class="fas fa-check-circle text-success me-2"></i>Requisito del subject:</b> El formato pedido para los logs es timestamp en milisegundos.</li>
+                            <li><b><i class="fas fa-eye me-2"></i>Legibilidad:</b> Los milisegundos son fácilmente interpretables por humanos (<code>123456 ms</code>).</li>
+                            <li><b><i class="fas fa-tachometer-alt me-2"></i>Precisión suficiente:</b> Para la mayoría de simulaciones, ms son más que suficientes.</li>
+                            <li><b><i class="fas fa-microchip me-2"></i>Eficiencia:</b> Internamente se usan microsegundos para sleeps, pero se muestran ms en el output.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><i class="fas fa-lightbulb me-2"></i>Clave del diseño</div>
+                    <div class="card-body">
+                        <ul class="explanation-list">
+                            <li><b>Internamente:</b> El programa usa <b>microsegundos</b> para cálculos y sleeps precisos.</li>
+                            <li><b>Externamente:</b> Los logs y mensajes muestran <b>milisegundos</b> para cumplir el subject y mejorar legibilidad.</li>
+                            <li><b>Conversión:</b> Siempre que se muestra un evento, se convierte el tiempo de µs a ms.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><i class="fas fa-book-open me-2"></i>Referencia man gettimeofday</div>
+                    <div class="card-body">
+                        <p>
+                            <code>gettimeofday()</code> devuelve el tiempo actual en <code>struct timeval</code>:
+                        </p>
+                        <div class="code-block" style="font-size:0.93em;">
+<pre><code>struct timeval {
+    time_t      tv_sec;     /* segundos */
+    suseconds_t tv_usec;    /* microsegundos */
+};</code></pre>
+                        </div>
+                        <p>
+                            <a href="https://man7.org/linux/man-pages/man2/gettimeofday.2.html" target="_blank" style="color:var(--info);text-decoration:underline;">Ver más en la man page oficial</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer class="footer text-center mt-5">
+        <div class="container">
+            <h5 class="mb-1">Proyecto Philosophers — 42 Barcelona</h5>
+            <div class="mb-2">Solución técnica para el problema de los filósofos comensales con hilos y mutexes.</div>
+            <small>Explicación de la función <b>gettime()</b> y su relación con <b>gettimeofday(2)</b>.<br>
+           2025 - mgrl39</small>
+        </div>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
