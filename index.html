@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dining Philosophers – Fork Assignment</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+body {
+    background:#f4f6f8;
+    font-family:sans-serif;
+}
+.table-container {
+    position:relative;
+    width:100%;
+    padding-top:100%;
+    background:#cce4f7;
+    border-radius:50%;
+    box-shadow:0 3px 18px #cce4f7;
+}
+.plate {
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:20%;
+    height:20%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:#fff7d1;
+    z-index:1;
+    box-shadow:0 3px 8px #fff7d1;
+}
+/* Philosopher triangle */
+.philo {
+    position:absolute;
+    width:0;
+    height:0;
+    border-left:1.8vw solid transparent;
+    border-right:1.8vw solid transparent;
+    border-bottom:3.6vw solid #6bc46c;
+    z-index:2;
+    cursor:pointer;
+    transition: border-bottom-color 0.2s;
+}
+.philo:hover {
+    border-bottom-color:#359c4b;
+}
+.philo-label {
+    position:absolute;
+    font-size:.9rem;
+    font-weight:bold;
+    color:#298;
+    background:rgba(255,255,255,0.7);
+    border-radius:1em;
+    padding:1px 8px;
+    transform:translate(-50%,-50%);
+    z-index:3;
+    pointer-events:none;
+}
+/* Fork bar */
+.fork {
+    position:absolute;
+    width:0.55vw;
+    height:3.2vw;
+    background:#666;
+    border-radius:3px;
+    z-index:2;
+    cursor:pointer;
+    box-shadow:0 0 5px #aaa;
+}
+.fork-label {
+    position:absolute;
+    font-size:.7rem;
+    background:rgba(255,255,255,0.85);
+    border-radius:8px;
+    padding:1px 6px;
+    transform:translate(-50%,-50%);
+    z-index:3;
+    pointer-events:none;
+}
+/* Arrows (fork assignment) */
+.arrow {
+    position:absolute;
+    height:.38vw;
+    border-radius:.19vw;
+    transform-origin:0 50%;
+    z-index:4;
+}
+.arrow-first {
+    background:#6b46c1;
+}
+.arrow-first::after {
+    content:'';
+    position:absolute;
+    right:0;
+    top:-.36vw;
+    border-top:.39vw solid transparent;
+    border-bottom:.39vw solid transparent;
+    border-left:.8vw solid #6b46c1;
+}
+.arrow-second {
+    background:#f59e0b;
+}
+.arrow-second::after {
+    content:'';
+    position:absolute;
+    right:0;
+    top:-.36vw;
+    border-top:.39vw solid transparent;
+    border-bottom:.39vw solid transparent;
+    border-left:.8vw solid #f59e0b;
+}
+/* Popup */
+#popup {
+    position:fixed;
+    display:none;
+    min-width:180px;
+    max-width:260px;
+    background:#fff;
+    padding:.75rem;
+    border-radius:.5rem;
+    box-shadow:0 6px 18px rgba(0,0,0,.15);
+    z-index:1050;
+    font-size:.85rem;
+}
+#popup button {
+    float:right;
+    font-size:.75rem;
+}
+</style>
+</head>
+<body>
+<div class="container-fluid p-4">
+  <div class="row gy-4">
+    <!-- Control / Explanation -->
+    <div class="col-lg-3 col-md-12 mb-2">
+      <h4>assign_forks Function</h4>
+      <pre><code>if (id % 2 == 0)
+  first  = pos
+  second = (pos + 1) % N
+else
+  first  = (pos + 1) % N
+  second = pos</code></pre>
+      <p class="small">Even philosophers take their own fork first, odd take the next – breaking circular wait and avoiding deadlock.</p>
+      <label class="form-label mt-2">Number of Philosophers</label>
+      <input type="number" id="philoCount" class="form-control mb-2" value="5" min="2" max="20">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="toggleFirst" checked>
+        <label class="form-check-label" for="toggleFirst">Show 1<sup>st</sup>-fork arrows (<span style="color:#6b46c1">purple</span>)</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="toggleSecond" checked>
+        <label class="form-check-label" for="toggleSecond">Show 2<sup>nd</sup>-fork arrows (<span style="color:#f59e0b">orange</span>)</label>
+      </div>
+      <button onclick="generate()" class="btn btn-primary w-100 mt-2">Generate</button>
+    </div>
+    <!-- Table in the centre -->
+    <div class="col-lg-4 col-md-12 mb-2">
+      <h4>Fork Assignment Table</h4>
+      <div class="table-responsive">
+        <table class="table table-bordered table-sm align-middle text-center">
+          <thead>
+            <tr><th>ID</th><th>First Fork</th><th>Second Fork</th><th>Calculation</th></tr>
+          </thead>
+          <tbody id="forkTable"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Graphic -->
+    <div class="col-lg-5 col-md-12">
+      <h4 class="text-center">Visualisation</h4>
+      <div class="table-container" id="vis"><div class="plate"></div></div>
+    </div>
+  </div>
+</div>
+<div id="popup"></div>
+<script>
+function assignForks(id, pos, N) {
+    if (id % 2 === 0) {
+        return {
+            first: pos,
+            second: (pos + 1) % N,
+            expl: `${pos} & (${pos}+1)%${N}=${(pos+1)%N}`
+        };
+    }
+    return {
+        first: (pos + 1) % N,
+        second: pos,
+        expl: `(${pos}+1)%${N}=${(pos+1)%N} & ${pos}`
+    };
+}
+const popup = document.getElementById('popup');
+function hidePopup() { popup.style.display = 'none'; }
+function showPopup(html, x, y) {
+    popup.innerHTML = `${html}<button class="btn-close" onclick="hidePopup()"></button>`;
+    popup.style.left = `${x}px`; popup.style.top = `${y}px`;
+    popup.style.display = 'block';
+}
+function generate(){
+    hidePopup();
+    const N = parseInt(document.getElementById('philoCount').value);
+    if (isNaN(N) || N < 2) return;
+    const vis = document.getElementById('vis');
+    const table = document.getElementById('forkTable');
+    table.innerHTML = '';
+    vis.querySelectorAll('.philo,.fork,.arrow,.philo-label,.fork-label').forEach(e => e.remove());
+    const centre = vis.offsetWidth/2;
+    const rPhilo = centre*0.88, rFork = centre*0.68, rLabel = centre*0.98;
+    // Draw philosophers
+    for (let i = 0; i < N; i++) {
+        const a = 2 * Math.PI * i / N;
+        const x = centre + Math.cos(a) * rPhilo;
+        const y = centre + Math.sin(a) * rPhilo;
+        // Triangle
+        const tri = document.createElement('div');
+        tri.className = 'philo';
+        tri.style.left = `${x}px`;
+        tri.style.top = `${y}px`;
+        tri.style.transform = `translate(-50%,-50%) rotate(${a+Math.PI}rad)`;
+        tri.onclick = e => showPopup(
+            `<strong>Philosopher ${i+1}</strong><br>pos=${i}`,
+            e.clientX, e.clientY
+        );
+        vis.appendChild(tri);
+        // Label
+        const lbl = document.createElement('div');
+        lbl.className = 'philo-label';
+        lbl.textContent = `P${i+1}`;
+        lbl.style.left = `${centre + Math.cos(a) * rLabel}px`;
+        lbl.style.top = `${centre + Math.sin(a) * rLabel}px`;
+        vis.appendChild(lbl);
+    }
+    // Draw forks
+    for (let i = 0; i < N; i++) {
+        const af = 2 * Math.PI * (i - 0.5 + N) / N;
+        const fx = centre + Math.cos(af) * rFork;
+        const fy = centre + Math.sin(af) * rFork;
+        const fork = document.createElement('div');
+        fork.className = 'fork';
+        fork.style.left = `${fx}px`;
+        fork.style.top = `${fy}px`;
+        fork.style.transform = `translate(-50%,-50%) rotate(${af}rad)`;
+        fork.onclick = e => {
+            const leftPh = (i + N - 1) % N;
+            const rightPh = i;
+            showPopup(
+                `<strong>Fork ${i}</strong><br>Between P${leftPh+1} & P${rightPh+1}`,
+                e.clientX, e.clientY
+            );
+        };
+        vis.appendChild(fork);
+        // Fork label
+        const flbl = document.createElement('div');
+        flbl.className = 'fork-label';
+        flbl.textContent = `F${i}`;
+        flbl.style.left = `${centre + Math.cos(af) * (rFork + 18)}px`;
+        flbl.style.top = `${centre + Math.sin(af) * (rFork + 18)}px`;
+        vis.appendChild(flbl);
+    }
+    // Draw assignment table and arrows
+    const showFirst = document.getElementById('toggleFirst').checked;
+    const showSecond = document.getElementById('toggleSecond').checked;
+    for (let i = 0; i < N; i++) {
+        const pos = i;
+        const { first, second, expl } = assignForks(i, pos, N);
+        table.insertAdjacentHTML('beforeend',
+            `<tr>
+                <td>${i+1}</td>
+                <td style="color:#6b46c1;font-weight:bold">${first}</td>
+                <td style="color:#f59e0b;font-weight:bold">${second}</td>
+                <td><small>${expl}</small></td>
+            </tr>`
+        );
+        // Draw arrows from philosopher to assigned forks
+        const aPh = 2 * Math.PI * i / N;
+        const sx = centre + Math.cos(aPh) * (rPhilo - 10);
+        const sy = centre + Math.sin(aPh) * (rPhilo - 10);
+        [[first, 'arrow-first', showFirst], [second, 'arrow-second', showSecond]].forEach(([fk, cls, show]) => {
+            if (!show) return;
+            // Fork position
+            const afk = 2 * Math.PI * (fk - 0.5 + N) / N;
+            const ex = centre + Math.cos(afk) * (rFork + 10);
+            const ey = centre + Math.sin(afk) * (rFork + 10);
+            const dx = ex - sx, dy = ey - sy;
+            const len = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
+            const ar = document.createElement('div');
+            ar.className = `arrow ${cls}`;
+            ar.style.left = `${sx}px`;
+            ar.style.top = `${sy}px`;
+            ar.style.width = `${len}px`;
+            ar.style.transform = `rotate(${ang}rad)`;
+            vis.appendChild(ar);
+        });
+    }
+}
+document.getElementById('toggleFirst').onchange = generate;
+document.getElementById('toggleSecond').onchange = generate;
+window.onresize = () => setTimeout(generate, 250);
+window.onload = generate;
+</script>
+</body>
+</html>
